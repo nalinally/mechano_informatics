@@ -3,7 +3,7 @@ import numpy as np
 class HopfieldNetwork():
     
     def __init__(self, n):
-        self.W = np.zeros(n, n)
+        self.W = np.zeros((n, n))
         self.x = np.zeros(n)
         self.ths = np.zeros(n)
         self.n_cells = n
@@ -37,5 +37,5 @@ class HopfieldNetwork():
             self.x[id] = self.sign(np.dot(self.x, self.W[:][id]) - self.ths[i])
         return self.x
             
-    def show(self):
+    def get(self):
         return self.x
