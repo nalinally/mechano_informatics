@@ -18,9 +18,10 @@ class HopfieldNetwork():
     
     def learn(self, x):
         for x_ in x:
+            x_arr = np.array(x_)
             self.n_patterns += 1
             n = self.n_patterns
-            self.W = self.W * (n - 1) / n + np.dot(x_.T, x_) / n
+            self.W = self.W * (n - 1) / n + np.dot(x_arr.T, x_arr) / n
         for i in range(self.n_cells):
             self.W[i][i] = 0
             
