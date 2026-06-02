@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 import csv
+import os
 
 from hopfield_network import HopfieldNetwork
 import img_resize_binarize
@@ -56,14 +57,16 @@ def recall_until_stabilized(net):
 def recall_test(net, imgs):
     id = 0
     noise_ratio = 0.2
-    step = 5
+    step = 1
+    steps = 0
     net.learn([imgs[id]])
     net.set(add_noise(imgs[id], noise_ratio))
+    os.makedirs(recall_test_fig_dir+f"{id}", exist_ok=True)
     for _ in range(100):
         img = data_to_img(net.recall(step))
-        cv2.imshow("hoge", img)
-        cv2.waitKey()
-        cv2.destroyAllWindows()
+        steps += step
+        # print(recall_test_fig_dir+f"{id}/{steps}.png")
+        cv2.imwrite(recall_test_fig_dir+f"{id}/{steps}.png", img)
 
 def simple_performance_test(net, imgs):
     id = [0, 1, 2, 3, 4, 5]
@@ -146,8 +149,8 @@ def main():
     net = HopfieldNetwork(img_size[0] * img_size[1])
     imgs = read_data_from_dir(processed_img_dir)
     # recall_test(net, imgs)
-    # simple_performance_test(net, imgs)
-    noise_performance_test(net, imgs)
+    simple_performance_test(net, imgs)
+    # noise_performance_test(net, imgs)
     # csv_write_test()
     
 if __name__=="__main__":
