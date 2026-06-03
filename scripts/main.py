@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import cv2
 import csv
 import os
+import itertools
 
 from hopfield_network import HopfieldNetwork
 import img_resize_binarize
@@ -46,6 +47,12 @@ def add_noise(data, ratio):
 def similarity(data1, data2):
     return np.dot(data1, data2) / len(data1)
 
+def l1norm(data1, data2):
+    return sum([np.abs(x1 - x2) for x1, x2 in zip(data1, data2)])
+
+def l2norm(data1, data2):
+    return np.sqrt(sum([pow(x1 - x2, 2) for x1, x2 in zip(data1, data2)]))
+
 def recall_until_stabilized(net):
     pre_x = net.getX()
     while(True):
@@ -61,17 +68,17 @@ def recall_test(net, imgs):
     steps = 0
     net.learn([imgs[id]])
     net.set(add_noise(imgs[id], noise_ratio))
-    os.makedirs(recall_test_fig_dir+f"{id}", exist_ok=True)
+    os.makedirs(fig_dir + rt_fig_dir + f"{id}", exist_ok=True)
     for _ in range(100):
         img = data_to_img(net.recall(step))
         steps += step
         # print(recall_test_fig_dir+f"{id}/{steps}.png")
-        cv2.imwrite(recall_test_fig_dir+f"{id}/{steps}.png", img)
+        cv2.imwrite(fig_dir + rt_fig_dir + f"{id}/{steps}.png", img)
 
 def simple_performance_test(net, imgs):
-    id = [0, 1, 2, 3, 4, 5]
+    id = [4, 5]
     noise_ratio = 0.2
-    n_test = 1000
+    n_test = 10
     similarities = []
     torf = []
     net.learn([imgs[id_] for id_ in id])
@@ -124,13 +131,97 @@ def noise_performance_test(net, imgs):
         torf_list.append(torf)
         print(f"average of similarities: {np.mean(similarities)}")
         print(f"true ratio: {np.mean(torf)}")
-    with open(csv_dir + csv_file, 'w') as f:
+    with open(csv_dir + npt_csv_dir + csv_file, 'w') as f:
         title_row = np.hstack([["noise_ratio"], [f"sm[{i}]" for i in range(len(torf_list[0]))], [f"tf[{i}]" for i in range(len(torf_list[0]))]])
         write_list = np.hstack([np.array([noise_ratio]).T, similarities_list, torf_list])
         writer = csv.writer(f)
         writer.writerow(title_row)
         writer.writerows(write_list)
     plt.plot(noise_ratio, np.mean(similarities_list, axis=1))
+    plt.show()
+    
+def similarity_performance_test(net, imgs):
+    csv_file = 'similarity_performance_test_4pattern_300tests.csv'
+    n = 4
+    noise_ratio = 0.2
+    n_test = 300
+    ids = list(range(len(imgs)))
+    combs = list(itertools.combinations(ids, n))
+    sim_l1s = []
+    sim_l2s = []
+    l1_l1s = []
+    l1_l2s = []
+    l2_l1s = []
+    l2_l2s = []
+    similarities_list = []
+    torf_list = []
+    for comb in combs:
+        sims = []
+        l1s = []
+        l2s = []
+        calc_combs = list(itertools.combinations(comb, 2))
+        for calc_comb in calc_combs:
+            sims.append(similarity(imgs[calc_comb[0]], imgs[calc_comb[1]]))
+            l1s.append(l1norm(imgs[calc_comb[0]], imgs[calc_comb[1]]))
+            l2s.append(l2norm(imgs[calc_comb[0]], imgs[calc_comb[1]]))
+        sim_l1s.append(l1norm(sims, np.zeros(len(sims))))
+        sim_l2s.append(l2norm(sims, np.zeros(len(sims))))
+        l1_l1s.append(l1norm(l1s, np.zeros(len(l1s))))
+        l1_l2s.append(l2norm(l1s, np.zeros(len(l1s))))
+        l2_l1s.append(l1norm(l2s, np.zeros(len(l2s))))
+        l2_l2s.append(l2norm(l2s, np.zeros(len(l2s))))
+        similarities = []
+        torf = []
+        net.reset()
+        net.learn([imgs[id_] for id_ in comb])
+        for id_ in comb:
+            print(f"\ntest pattern {id_}.\n")
+            for _ in range(n_test):
+                net.set(add_noise(imgs[id_], noise_ratio))
+                # cv2.imshow("before", cv2.hconcat([data_to_img(imgs[id_]), data_to_img(net.getX())]))
+                # cv2.waitKey()
+                # cv2.destroyAllWindows()
+                recall_until_stabilized(net)
+                # cv2.imshow("after", cv2.hconcat([data_to_img(imgs[id_]), data_to_img(net.getX())]))
+                # cv2.waitKey()
+                # cv2.destroyAllWindows()
+                similarity_ = similarity(imgs[id_], net.getX())
+                # print(f"similarity: {similarity_}")
+                similarities.append(similarity_)
+                torf.append(1 if similarity_ == 1 else 0)
+        similarities_list.append(similarities)
+        torf_list.append(torf)
+        print(f"[{comb}] average of similarities: {np.mean(similarities)}")
+        print(f"[{comb}] true ratio: {np.mean(torf)}")
+    with open(csv_dir + spt_csv_dir + csv_file, 'w') as f:
+        title_row = np.hstack([["sim_l1", "sim_l2", "l1_l1", "l1_l2", "l2_l1", "l2_l2"], [f"sm[{i}]" for i in range(len(torf_list[0]))], [f"tf[{i}]" for i in range(len(torf_list[0]))]])
+        write_list = np.hstack([np.array([sim_l1s]).T, np.array([sim_l2s]).T, np.array([l1_l1s]).T, np.array([l1_l2s]).T, np.array([l2_l1s]).T, np.array([l2_l2s]).T, similarities_list, torf_list])
+        writer = csv.writer(f)
+        writer.writerow(title_row)
+        writer.writerows(write_list)
+    plt.figure()
+    plt.title("sim_l1")
+    plt.scatter(sim_l1s, np.mean(similarities_list, axis=1))
+    plt.show(block=False)
+    plt.figure()
+    plt.title("sim_l2")
+    plt.scatter(sim_l2s, np.mean(similarities_list, axis=1))
+    plt.show(block=False)
+    plt.figure()
+    plt.title("l1_l1")
+    plt.scatter(l1_l1s, np.mean(similarities_list, axis=1))
+    plt.show(block=False)
+    plt.figure()
+    plt.title("l1_l2")
+    plt.scatter(l1_l2s, np.mean(similarities_list, axis=1))
+    plt.show(block=False)
+    plt.figure()
+    plt.title("l2_l1")
+    plt.scatter(l2_l1s, np.mean(similarities_list, axis=1))
+    plt.show(block=False)
+    plt.figure()
+    plt.title("l2_l2")
+    plt.scatter(l2_l2s, np.mean(similarities_list, axis=1))
     plt.show()
     
 def csv_write_test():
@@ -149,8 +240,9 @@ def main():
     net = HopfieldNetwork(img_size[0] * img_size[1])
     imgs = read_data_from_dir(processed_img_dir)
     # recall_test(net, imgs)
-    simple_performance_test(net, imgs)
+    # simple_performance_test(net, imgs)
     # noise_performance_test(net, imgs)
+    similarity_performance_test(net, imgs)
     # csv_write_test()
     
 if __name__=="__main__":

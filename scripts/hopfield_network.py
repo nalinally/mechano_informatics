@@ -27,7 +27,7 @@ class HopfieldNetwork():
             
     def reset(self):
         self.n_patterns = 0
-        self.W = np.zeros(self.n_cells, self.n_cells)
+        self.W = np.zeros((self.n_cells, self.n_cells))
     
     def set(self, x):
         self.x = x.copy()
